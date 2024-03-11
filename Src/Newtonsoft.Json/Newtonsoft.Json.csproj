@@ -40,6 +40,7 @@
     Disable that warning since local builds do not strong-name sign the assembly, causing a mistmatch when comparing
     the previously shipped assemblies and current.-->
     <NoWarn Condition="'$(SignAssembly)' != 'true'">$(NoWarn);CP0003</NoWarn>
+    <TargetFrameworks>net45</TargetFrameworks>
   </PropertyGroup>
   <ItemGroup>
     <None Remove="**\*.orig" />
