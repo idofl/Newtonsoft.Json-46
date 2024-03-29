@@ -27,11 +27,40 @@ using System;
 using System.Diagnostics;
 using BenchmarkDotNet.Running;
 using Newtonsoft.Json;
-using Newtonsoft.Json.Tests.Benchmarks;
+//using Newtonsoft.Json.Tests.Benchmarks;
 using System.Reflection;
+using Newtonsoft.Json.Tests.TestObjects;
+using System.Collections.Generic;
+using Newtonsoft.Json.Tests;
+using BenchmarkDotNet.Attributes;
+using System.IO;
 
 namespace Newtonsoft.Json.TestConsole
 {
+    [MemoryDiagnoser, ShortRunJob]
+    public class SerializeBenchmarks
+    {
+        private static readonly IList<RootObject> LargeCollection;
+
+        static SerializeBenchmarks()
+        {
+            string json = System.IO.File.ReadAllText(TestFixtureBase.ResolvePath("large.json"));
+
+            LargeCollection = JsonConvert.DeserializeObject<IList<RootObject>>(json);
+        }
+
+        [Benchmark]
+        public void SerializeLargeJsonFile()
+        {
+            using (StreamWriter file = System.IO.File.CreateText(TestFixtureBase.ResolvePath("largewrite.json")))
+            {
+                JsonSerializer serializer = new JsonSerializer();
+                serializer.Formatting = Formatting.Indented;
+                serializer.Serialize(file, LargeCollection);
+            }
+        }
+    }
+
     public class Program
     {
         public static void Main(string[] args)
@@ -39,7 +68,7 @@ namespace Newtonsoft.Json.TestConsole
             var attribute = (AssemblyFileVersionAttribute)typeof(JsonConvert).GetTypeInfo().Assembly.GetCustomAttribute(typeof(AssemblyFileVersionAttribute));
             Console.WriteLine("Json.NET Version: " + attribute.Version);
 
-            new BenchmarkSwitcher(new [] { typeof(LowLevelBenchmarks) }).Run(new[] { "*" });
+            new BenchmarkSwitcher(new [] { typeof(SerializeBenchmarks) }).Run(args);
         }
     }
 }
