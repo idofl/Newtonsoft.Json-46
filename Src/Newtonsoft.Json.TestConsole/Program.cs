@@ -24,19 +24,27 @@
 #endregion
 
 using System;
-using System.Diagnostics;
 using BenchmarkDotNet.Running;
-using Newtonsoft.Json;
-//using Newtonsoft.Json.Tests.Benchmarks;
 using System.Reflection;
 using Newtonsoft.Json.Tests.TestObjects;
 using System.Collections.Generic;
 using Newtonsoft.Json.Tests;
 using BenchmarkDotNet.Attributes;
 using System.IO;
+using Newtonsoft.Json.Serialization;
 
 namespace Newtonsoft.Json.TestConsole
 {
+    public class TestContractResolver : DefaultContractResolver
+    {
+
+        public override JsonContract ResolveContract(Type type)
+        {
+            return CreateContract(type); // Always create a contract without using a cache
+            //return base.ResolveContract(type);
+        }
+    }
+
     [MemoryDiagnoser, ShortRunJob]
     public class SerializeBenchmarks
     {
@@ -44,7 +52,7 @@ namespace Newtonsoft.Json.TestConsole
 
         static SerializeBenchmarks()
         {
-            string json = System.IO.File.ReadAllText(TestFixtureBase.ResolvePath("large.json"));
+            string json = System.IO.File.ReadAllText(TestFixtureBase.ResolvePath("small.json"));
 
             LargeCollection = JsonConvert.DeserializeObject<IList<RootObject>>(json);
         }
@@ -54,7 +62,14 @@ namespace Newtonsoft.Json.TestConsole
         {
             using (StreamWriter file = System.IO.File.CreateText(TestFixtureBase.ResolvePath("largewrite.json")))
             {
-                JsonSerializer serializer = new JsonSerializer();
+                var settings = new JsonSerializerSettings 
+                {
+                   ContractResolver = new TestContractResolver()
+                };
+                var serializer = JsonSerializer.CreateDefault(settings);
+
+
+                //JsonSerializer serializer = new JsonSerializer();
                 serializer.Formatting = Formatting.Indented;
                 serializer.Serialize(file, LargeCollection);
             }
@@ -68,7 +83,7 @@ namespace Newtonsoft.Json.TestConsole
             var attribute = (AssemblyFileVersionAttribute)typeof(JsonConvert).GetTypeInfo().Assembly.GetCustomAttribute(typeof(AssemblyFileVersionAttribute));
             Console.WriteLine("Json.NET Version: " + attribute.Version);
 
-            new BenchmarkSwitcher(new [] { typeof(SerializeBenchmarks) }).Run(args);
+            new BenchmarkSwitcher(new [] { typeof(SerializeBenchmarks) }).Run(args);//, new DebugInProcessConfig());
         }
     }
 }

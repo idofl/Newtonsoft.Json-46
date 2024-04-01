@@ -114,6 +114,8 @@ namespace Newtonsoft.Json.Serialization
             return InternalSerializer;
         }
 
+        private readonly System.Collections.Concurrent.ConcurrentDictionary<Type, JsonContract?> _contractCache = new System.Collections.Concurrent.ConcurrentDictionary<Type, JsonContract?>();
+
         private JsonContract? GetContractSafe(object? value)
         {
             if (value == null)
@@ -121,7 +123,9 @@ namespace Newtonsoft.Json.Serialization
                 return null;
             }
 
-            return GetContract(value);
+            //return GetContract(value);
+             // Use a local variable to avoid repeated dictionary lookups
+            return _contractCache.GetOrAdd(value.GetType(), t => Serializer.ContractResolver.ResolveContract(t));
         }
 
         private JsonContract GetContract(object value)
