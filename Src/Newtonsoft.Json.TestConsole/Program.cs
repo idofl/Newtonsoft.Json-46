@@ -32,6 +32,7 @@ using Newtonsoft.Json.Tests;
 using BenchmarkDotNet.Attributes;
 using System.IO;
 using Newtonsoft.Json.Serialization;
+using BenchmarkDotNet.Configs;
 
 namespace Newtonsoft.Json.TestConsole
 {
@@ -46,13 +47,36 @@ namespace Newtonsoft.Json.TestConsole
     }
 
     [MemoryDiagnoser, ShortRunJob]
+    public class StringBenchmarks
+    {
+        static Type t = typeof(RootObject);
+
+        [Benchmark]
+        public string WithoutOptimization()
+        {
+            string s = t.AssemblyQualifiedName!;
+            return s;
+        }
+        [Benchmark]
+        public string WithOptimization()
+        {
+            string s = string.Create(t.AssemblyQualifiedName!.Length, t, (buffer, state) =>
+            {
+                state.AssemblyQualifiedName!.AsSpan().CopyTo(buffer);
+            });
+
+            return s;
+        }
+    }
+
+    [MemoryDiagnoser, ShortRunJob]
     public class SerializeBenchmarks
     {
         private static readonly IList<RootObject> LargeCollection;
 
         static SerializeBenchmarks()
         {
-            string json = System.IO.File.ReadAllText(TestFixtureBase.ResolvePath("small.json"));
+            string json = System.IO.File.ReadAllText(TestFixtureBase.ResolvePath("large.json"));
 
             LargeCollection = JsonConvert.DeserializeObject<IList<RootObject>>(json);
         }
@@ -60,19 +84,27 @@ namespace Newtonsoft.Json.TestConsole
         [Benchmark]
         public void SerializeLargeJsonFile()
         {
-            using (StreamWriter file = System.IO.File.CreateText(TestFixtureBase.ResolvePath("largewrite.json")))
+            var contractResolver = new CamelCasePropertyNamesContractResolver
             {
-                var settings = new JsonSerializerSettings 
-                {
-                   ContractResolver = new TestContractResolver()
-                };
+                NamingStrategy = new KebabCaseNamingStrategy()
+            };
+
+            var settings = new JsonSerializerSettings 
+            {
+                //ContractResolver = contractResolver
+                //ContractResolver = new TestContractResolver()
+                //ContractResolver = new CamelCasePropertyNamesContractResolver()
+            };
+
+            //StringWriter output = new StringWriter();
+            using (StreamWriter output = System.IO.File.CreateText(TestFixtureBase.ResolvePath("largewrite.json")))
+            {  
                 var serializer = JsonSerializer.CreateDefault(settings);
-
-
                 //JsonSerializer serializer = new JsonSerializer();
                 serializer.Formatting = Formatting.Indented;
-                serializer.Serialize(file, LargeCollection);
+                serializer.Serialize(output, LargeCollection);
             }
+            //Console.WriteLine(output);
         }
     }
 
@@ -83,7 +115,8 @@ namespace Newtonsoft.Json.TestConsole
             var attribute = (AssemblyFileVersionAttribute)typeof(JsonConvert).GetTypeInfo().Assembly.GetCustomAttribute(typeof(AssemblyFileVersionAttribute));
             Console.WriteLine("Json.NET Version: " + attribute.Version);
 
-            new BenchmarkSwitcher(new [] { typeof(SerializeBenchmarks) }).Run(args);//, new DebugInProcessConfig());
+            //new BenchmarkSwitcher(new [] { typeof(SerializeBenchmarks) }).Run(args, new DebugInProcessConfig());
+            new BenchmarkSwitcher(new [] { typeof(StringBenchmarks) }).Run(args);
         }
     }
 }
